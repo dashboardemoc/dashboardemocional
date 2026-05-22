@@ -7,6 +7,7 @@ import psycopg2
 from sqlalchemy import create_engine
 import pytz
 import plotly.express as px
+import plotly.graph_objects as go
 # ==========================================
 # CONTROL DE ACCESO (LOGIN MEJORADO)
 # ==========================================
@@ -334,38 +335,59 @@ def renderizar_analisis():
         else:
             df_grafica = df_suavizado.copy()
         
-        # 🟢 EL TRUCO UX: Convertimos la fecha técnica en un texto hermoso "HH:MM:SS"
+# =====================================================================
+        # SOLUCIÓN CON PLOTLY: Mantiene las etiquetas horizontales y limpias
+        # =====================================================================
         if not df_grafica.empty:
-            # Resetear el índice para que 'timestamp' sea una columna manejable por Plotly
-            df_plotly = df_grafica.reset_index()
-    
-    # Crear el gráfico de líneas con Plotly
-            fig = px.line(
-               df_plotly, 
-               x='timestamp', 
-               y=['Valencia (Agrado)', 'Activación (Energía)', 'Dominancia'],
-               color_discrete_sequence=["#00CC96", "#636EFA", "#AB63FA"],
-               template="plotly_dark" # Se integra perfecto con tu fondo oscuro
-               )
-    
-    # Ajustes estéticos para forzar etiquetas horizontales y limpiar márgenes
+            import plotly.graph_objects as go
+            
+            fig = go.Figure()
+            
+            # Mapeo de columnas y sus colores exactos
+            columnas = ['Valencia (Agrado)', 'Activación (Energía)', 'Dominancia']
+            colores = ["#00CC96", "#636EFA", "#AB63FA"]
+            
+            for col, color in zip(columnas, colores):
+                fig.add_trace(go.Scatter(
+                    x=df_grafica.index,  # Usamos el datetime original sin strftime
+                    y=df_grafica[col],
+                    mode='lines',
+                    name=col,
+                    line=dict(color=color, width=3),
+                    hovertemplate='%{y:.2f}'
+                ))
+            
+            # Configuración del estilo oscuro y comportamiento del eje X
             fig.update_layout(
-                  margin=dict(l=20, r=20, t=20, b=20),
-                  legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                  xaxis=dict(
-                    tickangle=0,  # 👈 FORZA a que los números se queden completamente horizontales
-                      nticks=6      # 👈 Limita el número máximo de textos visibles en el eje X
-                              ),
-                  yaxis=dict(range=[-1.0, 0.1]), # Ajusta según el rango real de tu VAD
-                       height=350
-                 )
-    
-    # Renderizar en Streamlit
-    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-        
-        # Dibujamos la gráfica
-    st.line_chart(df_grafica, color=["#00CC96", "#636EFA", "#AB63FA"])
-
+                margin=dict(l=20, r=20, t=10, b=20),
+                paper_bgcolor='rgba(0,0,0,0)', # Transparente para usar el fondo de Streamlit
+                plot_bgcolor='rgba(0,0,0,0)',
+                height=320,
+                showlegend=True,
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=-0.3,
+                    xanchor="center",
+                    x=0.5,
+                    font=dict(color="#A3A8B8")
+                ),
+                xaxis=dict(
+                    tickformat='%H:%M:%S', # Formato elegante directamente en el renderizado
+                    tickangle=0,           # Fuerza a que se queden horizontales
+                    nticks=6,              # Muestra máximo 6 etiquetas distribuidas para evitar colapsos
+                    gridcolor='#262730',
+                    tickfont=dict(color="#A3A8B8")
+                ),
+                yaxis=dict(
+                    gridcolor='#262730',
+                    tickfont=dict(color="#A3A8B8"),
+                    range=[-0.7, 0.1]      # Ajusta según los rangos que sueles manejar
+                ),
+                template="plotly_dark"
+            )
+            
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
     with col_R:
         st.markdown("### Historial de Estados (Acumulado)")
         html_content = '<div style="background-color: #262730; border-radius: 10px; padding: 15px; height: 350px; overflow-y: auto;">'
