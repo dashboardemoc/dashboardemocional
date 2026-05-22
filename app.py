@@ -203,8 +203,8 @@ def calculate_metrics(df):
         total = dist_counts['Count'].sum()
         dist_counts['Percentage'] = (dist_counts['Count'] / total * 100).round(1)
         dist_counts['Label'] = dist_counts['Emotion'].map(
-            {'happy':'Feliz', 'neutral':'NEUTRAL', 'sad':'Triste', 
-             'angry':'Frustrado', 'surprise':'Sorpresa', 'fear':'MIEDO', 'disgust':'Rechazo'}
+            {'happy':'Feliz', 'neutral':'Neutral', 'sad':'Triste', 
+             'angry':'Frustrado', 'surprise':'Sorpresa', 'fear':'Miedo', 'disgust':'Rechazo'}
         ).fillna('Otro')
         dist_counts = dist_counts.sort_values('Percentage', ascending=False)
         return current_avg, dom_es, (status, status_col), dist_counts, dom_en, tendencia, tend_col, energia, disposicion, razon, sugerencia
