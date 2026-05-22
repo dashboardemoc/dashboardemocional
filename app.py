@@ -5,28 +5,35 @@ from datetime import datetime, timedelta
 import textwrap 
 import psycopg2
 
+# ==========================================
+# CONTROL DE ACCESO (LOGIN MEJORADO)
+# ==========================================
 def check_password():
     """Retorna True si el usuario ingresó la contraseña correcta."""
-    def password_entered():
-        # Comprueba si la clave coincide con la variable de entorno secreta
-        if st.session_state["password"] == st.secrets["admin_password"]:
-            st.session_state["password_correct"] = True
-            del st.session_state["password"]  # limpiar la clave de la sesion
-        else:
-            st.session_state["password_correct"] = False
+    
+    # Si ya puso la clave antes, entra directo
+    if st.session_state.get("password_correct", False):
+        return True
 
-    if "password_correct" not in st.session_state:
-        st.markdown("<h2 style='text-align: center; color: #636EFA;'>Acceso Restringido</h2>", unsafe_allow_html=True)
-        st.text_input("Ingrese la clave de la institucion:", type="password", on_change=password_entered, key="password")
-        return False
-    elif not st.session_state["password_correct"]:
-        st.markdown("<h2 style='text-align: center; color: #636EFA;'>Acceso Restringido</h2>", unsafe_allow_html=True)
-        st.text_input("Ingrese la clave institucional:", type="password", on_change=password_entered, key="password")
-        st.error("Clave incorrecta")
-        return False
-    return True
+    # Interfaz gráfica del Login
+    st.markdown("<h2 style='text-align: center; color: #636EFA;'>🔒 Monitor Académico - Acceso Restringido</h2>", unsafe_allow_html=True)
+    
+    # Usamos st.form para evitar que se recargue por accidente al tocar el "ojito"
+    with st.form("login_form"):
+        pwd = st.text_input("Ingrese la clave institucional:", type="password")
+        # Creamos un botón gigante y elegante
+        submit_button = st.form_submit_button("Ingresar al Sistema", type="primary")
+        
+        if submit_button:
+            if pwd == st.secrets["admin_password"]:
+                st.session_state["password_correct"] = True
+                st.rerun()  # Recarga la página y te deja entrar
+            else:
+                st.error("❌ Clave incorrecta. Acceso denegado.")
+    
+    return False
 
-# Si la clave es incorrecta, st.stop() detiene la carga del resto del Dashboard
+# AQUÍ SE PONE LA BARRERA
 if not check_password():
     st.stop()
 
