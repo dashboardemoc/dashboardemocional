@@ -113,20 +113,22 @@ def get_data_since_start():
 
 def clear_database():
     try:
-        
-        conn = sqlite3.connect(DB_NAME)
+        # 1. Nos conectamos a la Nube (Supabase)
+        conn = psycopg2.connect(st.secrets["DB_URL"])
         cursor = conn.cursor()
+        
+        # 2. Borramos todos los registros de la tabla
         cursor.execute("DELETE FROM emotions")
         conn.commit()
         conn.close()
         
-        #HORA DE PERU
+        # 3. Reiniciamos el reloj de la clase con la hora exacta de Perú
         zona_peru = pytz.timezone('America/Lima')
         st.session_state.start_time = datetime.now(zona_peru).replace(tzinfo=None)
         
-        st.toast("Base de datos reiniciada con éxito.", icon="✅")
+        st.toast("Base de datos en la nube reiniciada con éxito.", icon="✅")
     except Exception as e:
-        st.error(f"Error limpiando BD: {e}")
+        st.error(f"Error limpiando BD en la nube: {e}")
 
 @st.cache_data
 def convert_df_to_csv(df):
