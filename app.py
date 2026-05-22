@@ -31,7 +31,7 @@ if not check_password():
     st.stop()
 
 
-st.title("Tablero de Control Emocional del Aula")
+
 
 DB_URL = st.secrets["DB_URL"]
 # Configuracion inicial
