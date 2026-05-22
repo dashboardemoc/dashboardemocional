@@ -313,7 +313,7 @@ def renderizar_analisis():
     
     col_L, col_R = st.columns([3, 2]) 
     
-with col_L:
+    with col_L:
         st.markdown("### Dimensiones VAD (Evolución Temporal)")
         
         # 1. Usamos el tiempo REAL del reloj en lugar de inventar "Minutos"
