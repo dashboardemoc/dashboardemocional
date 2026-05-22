@@ -4,7 +4,8 @@ import pandas as pd
 from datetime import datetime, timedelta
 import textwrap 
 import psycopg2
-
+from sqlalchemy import create_engine
+import pytz
 # ==========================================
 # CONTROL DE ACCESO (LOGIN MEJORADO)
 # ==========================================
@@ -96,13 +97,13 @@ if 'start_time' not in st.session_state:
 
 # Base de datos
 
+# Creamos el motor fuera de la función para que sea más rápido
+engine = create_engine(st.secrets["DB_URL"])
+
 def get_data_since_start():
     try:
-        conn = psycopg2.connect(DB_URL)
-        # Solo pedimos los últimos 500 registros para no saturar la web
-        df = pd.read_sql_query("SELECT timestamp, emotion, valence, arousal, dominance FROM emotions ORDER BY id DESC LIMIT 500", conn)
-        conn.close()
-        
+        # Usamos el engine en lugar del conn de psycopg2
+        df = pd.read_sql_query("SELECT timestamp, emotion, valence, arousal, dominance FROM emotions ORDER BY id DESC LIMIT 500", engine)
         if df.empty: return pd.DataFrame()
         df['timestamp'] = pd.to_datetime(df['timestamp'])
         return df
@@ -351,19 +352,25 @@ def renderizar_analisis():
 # RUTAS Y MODO REPOSO (SUPERVISOR EN TIEMPO REAL)
 # ==========================================
 
-# Este fragmento maestro se ejecuta cada 2 segundos automáticamente
+# ==========================================
+# RUTAS Y MODO REPOSO (SUPERVISOR EN TIEMPO REAL)
+# ==========================================
 @st.fragment(run_every=2)
 def supervisor_pantalla():
     df_check = get_data_since_start()
     
+    # 🔴 SOLUCIÓN CLOUD: Obtener la hora exacta de Perú
+    zona_peru = pytz.timezone('America/Lima')
+    hora_actual_peru = datetime.now(zona_peru).replace(tzinfo=None)
+
     # Calculamos hace cuántos segundos llegó el último dato
     if not df_check.empty:
         tiempo_ultimo_registro = df_check['timestamp'].max()
-        diferencia_segundos = (datetime.now() - tiempo_ultimo_registro).total_seconds()
+        diferencia_segundos = (hora_actual_peru - tiempo_ultimo_registro).total_seconds()
     else:
-        diferencia_segundos = 999 # Si no hay datos, asumimos que está apagado
+        diferencia_segundos = 999 
 
-    # Si pasaron más de 15 segundos sin recibir datos de la cámara local
+    # Si pasaron más de 15 segundos sin recibir datos (Timeout)
     if diferencia_segundos > 15:
         st.markdown("""
             <div style="text-align: center; padding: 60px; background-color: #262730; border-radius: 15px; margin-top: 50px; border: 2px dashed #636EFA;">
@@ -374,7 +381,6 @@ def supervisor_pantalla():
             </div>
         """, unsafe_allow_html=True)
     
-    # Si la cámara está prendida y enviando datos (menos de 15 seg de diferencia)
     else:
         if modo_vista == "Vista de Semáforo":
             renderizar_semaforo()
@@ -383,7 +389,6 @@ def supervisor_pantalla():
         elif modo_vista == "Análisis de Sesión":
             renderizar_analisis()
 
-# Ejecutamos el supervisor
 supervisor_pantalla()
 
 
