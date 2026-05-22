@@ -31,9 +31,9 @@ def check_password():
 if not check_password():
     st.stop()
 
-# --- AQUÍ EMPIEZA TU CÓDIGO NORMAL DEL DASHBOARD ---
+
 st.title("Tablero de Control Emocional del Aula")
-# ... (resto de tu código)
+
 DB_URL = st.secrets["DB_URL"]
 # Configuracion inicial
 DB_NAME = "classroom.db"
