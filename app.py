@@ -6,6 +6,34 @@ import textwrap
 import psycopg2
 
 
+def check_password():
+    """Retorna True si el usuario ingresó la contraseña correcta."""
+    def password_entered():
+        # Comprueba si la clave coincide con la variable de entorno secreta
+        if st.session_state["password"] == st.secrets["admin_password"]:
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]  # Borra la clave de la memoria por seguridad
+        else:
+            st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state:
+        st.markdown("<h2 style='text-align: center; color: #636EFA;'>🔒 Acceso Restringido</h2>", unsafe_allow_html=True)
+        st.text_input("Ingrese la clave institucional:", type="password", on_change=password_entered, key="password")
+        return False
+    elif not st.session_state["password_correct"]:
+        st.markdown("<h2 style='text-align: center; color: #636EFA;'>🔒 Acceso Restringido</h2>", unsafe_allow_html=True)
+        st.text_input("Ingrese la clave institucional:", type="password", on_change=password_entered, key="password")
+        st.error("❌ Clave incorrecta. Acceso denegado.")
+        return False
+    return True
+
+# Si la clave es incorrecta, st.stop() detiene la carga del resto del Dashboard
+if not check_password():
+    st.stop()
+
+# --- AQUÍ EMPIEZA TU CÓDIGO NORMAL DEL DASHBOARD ---
+st.title("Tablero de Control Emocional del Aula")
+# ... (resto de tu código)
 DB_URL = st.secrets["DB_URL"]
 # Configuracion inicial
 DB_NAME = "classroom.db"
