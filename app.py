@@ -382,10 +382,10 @@ def supervisor_pantalla():
     if diferencia_segundos > 15:
         st.markdown("""
             <div style="text-align: center; padding: 60px; background-color: #262730; border-radius: 15px; margin-top: 50px; border: 2px dashed #636EFA;">
-                <h1 style="color: #636EFA; font-size: 3.5rem;">🌙 SISTEMA EN MODO REPOSO</h1>
+                <h1 style="color: #636EFA; font-size: 3.5rem;">SISTEMA EN MODO REPOSO</h1>
                 <h3 style="color: #A3A8B8; margin-bottom: 20px;">El procesamiento local de Inteligencia Artificial está inactivo.</h3>
                 <p style="color: #FAFAFA; font-size: 1.2rem;">Esperando conexión en tiempo real desde la cámara de la institución...</p>
-                <p style="color: #555; font-size: 0.9rem;">(Protección de privacidad activada: No se almacenan imágenes en la nube)</p>
+                <p style="color: #555; font-size: 0.9rem;">(No se almacenan imágenes en la nube)</p>
             </div>
         """, unsafe_allow_html=True)
     
