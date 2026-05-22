@@ -349,7 +349,7 @@ def renderizar_analisis():
                )
     
     # Ajustes estéticos para forzar etiquetas horizontales y limpiar márgenes
-               fig.update_layout(
+            fig.update_layout(
                   margin=dict(l=20, r=20, t=20, b=20),
                   legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                   xaxis=dict(
