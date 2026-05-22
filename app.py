@@ -316,7 +316,7 @@ def renderizar_analisis():
     with col_L:
         st.markdown("### Dimensiones VAD (Evolución Temporal)")
         
-        # 1. Usamos el tiempo REAL del reloj en lugar de inventar "Minutos"
+        # 1. Usamos el tiempo REAL del reloj
         df_temporal = df[['timestamp', 'valence', 'arousal', 'dominance']].copy()
         df_temporal.set_index('timestamp', inplace=True)
         
@@ -324,14 +324,20 @@ def renderizar_analisis():
         df_suavizado = df_temporal.rolling(window=10, min_periods=1).mean()
         df_suavizado.columns = ['Valencia (Agrado)', 'Activación (Energía)', 'Dominancia']
         
-        # 3. Filtrar para mostrar siempre solo el último minuto de clase (ventana deslizante)
+        # 3. Filtrar para mostrar siempre solo el último minuto
         if not df_suavizado.empty:
             tiempo_maximo = df_suavizado.index.max()
-            limite_tiempo = tiempo_maximo - pd.Timedelta(seconds=60) # Últimos 60 segundos
-            df_grafica = df_suavizado[df_suavizado.index >= limite_tiempo]
+            limite_tiempo = tiempo_maximo - pd.Timedelta(seconds=60)
+            # Usamos .copy() para poder modificarlo sin alertas de Pandas
+            df_grafica = df_suavizado[df_suavizado.index >= limite_tiempo].copy() 
         else:
-            df_grafica = df_suavizado
+            df_grafica = df_suavizado.copy()
         
+        # 🟢 EL TRUCO UX: Convertimos la fecha técnica en un texto hermoso "HH:MM:SS"
+        if not df_grafica.empty:
+            df_grafica.index = df_grafica.index.strftime('%H:%M:%S')
+        
+        # Dibujamos la gráfica
         st.line_chart(df_grafica, color=["#00CC96", "#636EFA", "#AB63FA"])
 
     with col_R:
