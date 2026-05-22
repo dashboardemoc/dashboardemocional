@@ -382,7 +382,7 @@ def renderizar_analisis():
                 yaxis=dict(
                     gridcolor='#262730',
                     tickfont=dict(color="#A3A8B8"),
-                    range=[-0.7, 0.1]      # Ajusta según los rangos que sueles manejar
+                    range=[-1.05, 1.05]  # Un pequeño margen extra para que las líneas no toquen los bordes
                 ),
                 template="plotly_dark"
             )
