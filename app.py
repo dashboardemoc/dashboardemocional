@@ -11,18 +11,18 @@ def check_password():
         # Comprueba si la clave coincide con la variable de entorno secreta
         if st.session_state["password"] == st.secrets["admin_password"]:
             st.session_state["password_correct"] = True
-            del st.session_state["password"]  # Borra la clave de la memoria por seguridad
+            del st.session_state["password"]  # limpiar la clave de la sesion
         else:
             st.session_state["password_correct"] = False
 
     if "password_correct" not in st.session_state:
-        st.markdown("<h2 style='text-align: center; color: #636EFA;'>🔒 Acceso Restringido</h2>", unsafe_allow_html=True)
-        st.text_input("Ingrese la clave institucional:", type="password", on_change=password_entered, key="password")
+        st.markdown("<h2 style='text-align: center; color: #636EFA;'>Acceso Restringido</h2>", unsafe_allow_html=True)
+        st.text_input("Ingrese la clave de la institucion:", type="password", on_change=password_entered, key="password")
         return False
     elif not st.session_state["password_correct"]:
-        st.markdown("<h2 style='text-align: center; color: #636EFA;'>🔒 Acceso Restringido</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: #636EFA;'>Acceso Restringido</h2>", unsafe_allow_html=True)
         st.text_input("Ingrese la clave institucional:", type="password", on_change=password_entered, key="password")
-        st.error("❌ Clave incorrecta. Acceso denegado.")
+        st.error("Clave incorrecta")
         return False
     return True
 
