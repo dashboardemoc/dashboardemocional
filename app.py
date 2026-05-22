@@ -17,11 +17,11 @@ def check_password():
         return True
 
     # Interfaz gráfica del Login
-    st.markdown("<h2 style='text-align: center; color: #636EFA;'>🔒 Monitor Académico - Acceso Restringido</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #636EFA;'>Monitor Académico - Acceso Restringido</h2>", unsafe_allow_html=True)
     
     # Usamos st.form para evitar que se recargue por accidente al tocar el "ojito"
     with st.form("login_form"):
-        pwd = st.text_input("Ingrese la clave institucional:", type="password")
+        pwd = st.text_input("Ingrese la clave  de la institucion:", type="password")
         # Creamos un botón gigante y elegante
         submit_button = st.form_submit_button("Ingresar al Sistema", type="primary")
         
@@ -30,7 +30,7 @@ def check_password():
                 st.session_state["password_correct"] = True
                 st.rerun()  # Recarga la página y te deja entrar
             else:
-                st.error("❌ Clave incorrecta. Acceso denegado.")
+                st.error("Clave incorrecta. Acceso denegado.")
     
     return False
 
@@ -242,7 +242,7 @@ with st.sidebar:
         clear_database()
         st.rerun()
 
-st.title("Tablero de Control Emocional del Aula")
+st.title("Tablero de Control Emocional")
 
 # Renderizamiento
 
