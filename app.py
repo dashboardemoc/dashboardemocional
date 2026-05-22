@@ -92,7 +92,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 if 'start_time' not in st.session_state: 
-    st.session_state.start_time = datetime.now()
+    zona_peru = pytz.timezone('America/Lima')
+    st.session_state.start_time = datetime.now(zona_peru).replace(tzinfo=None)
 
 
 # Base de datos
@@ -112,12 +113,17 @@ def get_data_since_start():
 
 def clear_database():
     try:
+        
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
         cursor.execute("DELETE FROM emotions")
         conn.commit()
         conn.close()
-        st.session_state.start_time = datetime.now()
+        
+        #HORA DE PERU
+        zona_peru = pytz.timezone('America/Lima')
+        st.session_state.start_time = datetime.now(zona_peru).replace(tzinfo=None)
+        
         st.toast("Base de datos reiniciada con éxito.", icon="✅")
     except Exception as e:
         st.error(f"Error limpiando BD: {e}")
