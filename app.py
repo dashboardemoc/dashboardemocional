@@ -364,7 +364,7 @@ def renderizar_analisis():
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
         
         # Dibujamos la gráfica
-        st.line_chart(df_grafica, color=["#00CC96", "#636EFA", "#AB63FA"])
+    st.line_chart(df_grafica, color=["#00CC96", "#636EFA", "#AB63FA"])
 
     with col_R:
         st.markdown("### Historial de Estados (Acumulado)")
