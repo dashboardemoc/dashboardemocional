@@ -6,6 +6,7 @@ import textwrap
 import psycopg2
 from sqlalchemy import create_engine
 import pytz
+import plotly.express as px
 # ==========================================
 # CONTROL DE ACCESO (LOGIN MEJORADO)
 # ==========================================
@@ -335,7 +336,32 @@ def renderizar_analisis():
         
         # 🟢 EL TRUCO UX: Convertimos la fecha técnica en un texto hermoso "HH:MM:SS"
         if not df_grafica.empty:
-            df_grafica.index = df_grafica.index.strftime('%H:%M:%S')
+            # Resetear el índice para que 'timestamp' sea una columna manejable por Plotly
+            df_plotly = df_grafica.reset_index()
+    
+    # Crear el gráfico de líneas con Plotly
+            fig = px.line(
+               df_plotly, 
+               x='timestamp', 
+               y=['Valencia (Agrado)', 'Activación (Energía)', 'Dominancia'],
+               color_discrete_sequence=["#00CC96", "#636EFA", "#AB63FA"],
+               template="plotly_dark" # Se integra perfecto con tu fondo oscuro
+               )
+    
+    # Ajustes estéticos para forzar etiquetas horizontales y limpiar márgenes
+               fig.update_layout(
+                  margin=dict(l=20, r=20, t=20, b=20),
+                  legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                  xaxis=dict(
+                    tickangle=0,  # 👈 FORZA a que los números se queden completamente horizontales
+                      nticks=6      # 👈 Limita el número máximo de textos visibles en el eje X
+                              ),
+                  yaxis=dict(range=[-1.0, 0.1]), # Ajusta según el rango real de tu VAD
+                       height=350
+                 )
+    
+    # Renderizar en Streamlit
+    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
         
         # Dibujamos la gráfica
         st.line_chart(df_grafica, color=["#00CC96", "#636EFA", "#AB63FA"])
