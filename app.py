@@ -313,17 +313,22 @@ def renderizar_analisis():
     
     col_L, col_R = st.columns([3, 2]) 
     
-    with col_L:
+with col_L:
         st.markdown("### Dimensiones VAD (Evolución Temporal)")
-        df['Minutos'] = (df['timestamp'] - st.session_state.start_time).dt.total_seconds() / 60.0
         
-        df_temporal = df[['Minutos', 'valence', 'arousal', 'dominance']].set_index('Minutos')
+        # 1. Usamos el tiempo REAL del reloj en lugar de inventar "Minutos"
+        df_temporal = df[['timestamp', 'valence', 'arousal', 'dominance']].copy()
+        df_temporal.set_index('timestamp', inplace=True)
+        
+        # 2. Suavizado de la curva (Rolling)
         df_suavizado = df_temporal.rolling(window=10, min_periods=1).mean()
         df_suavizado.columns = ['Valencia (Agrado)', 'Activación (Energía)', 'Dominancia']
         
-        tiempo_maximo = df_suavizado.index.max()
-        if tiempo_maximo >= 1.0:
-            df_grafica = df_suavizado[df_suavizado.index >= (tiempo_maximo - 1.0)]
+        # 3. Filtrar para mostrar siempre solo el último minuto de clase (ventana deslizante)
+        if not df_suavizado.empty:
+            tiempo_maximo = df_suavizado.index.max()
+            limite_tiempo = tiempo_maximo - pd.Timedelta(seconds=60) # Últimos 60 segundos
+            df_grafica = df_suavizado[df_suavizado.index >= limite_tiempo]
         else:
             df_grafica = df_suavizado
         
