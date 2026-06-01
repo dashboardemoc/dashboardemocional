@@ -8,9 +8,7 @@ from sqlalchemy import create_engine
 import pytz
 import plotly.express as px
 import plotly.graph_objects as go
-# ==========================================
-# CONTROL DE ACCESO (LOGIN MEJORADO)
-# ==========================================
+# Login
 def check_password():
     """Retorna True si el usuario ingresó la contraseña correcta."""
     
@@ -21,10 +19,10 @@ def check_password():
     # Interfaz gráfica del Login
     st.markdown("<h2 style='text-align: center; color: #636EFA;'>Monitor Académico - Acceso Restringido</h2>", unsafe_allow_html=True)
     
-    # Usamos st.form para evitar que se recargue por accidente al tocar el "ojito"
+    # st form para evitar recargos inmediatos"
     with st.form("login_form"):
         pwd = st.text_input("Ingrese la clave  de la institucion:", type="password")
-        # Creamos un botón gigante y elegante
+        # boton
         submit_button = st.form_submit_button("Ingresar al Sistema", type="primary")
         
         if submit_button:
@@ -36,7 +34,7 @@ def check_password():
     
     return False
 
-# AQUÍ SE PONE LA BARRERA
+# fin del logeo
 if not check_password():
     st.stop()
 
@@ -100,7 +98,6 @@ if 'start_time' not in st.session_state:
 
 # Base de datos
 
-# Creamos el motor fuera de la función para que sea más rápido
 engine = create_engine(st.secrets["DB_URL"])
 
 def get_data_since_start():
@@ -115,20 +112,20 @@ def get_data_since_start():
 
 def clear_database():
     try:
-        # 1. Nos conectamos a la Nube (Supabase)
+        # conexion a la nube (Supabase)
         conn = psycopg2.connect(st.secrets["DB_URL"])
         cursor = conn.cursor()
         
-        # 2. Borramos todos los registros de la tabla
+        # se borra todo
         cursor.execute("DELETE FROM emotions")
         conn.commit()
         conn.close()
         
-        # 3. Reiniciamos el reloj de la clase con la hora exacta de Perú
+        # el reloj se reinciia
         zona_peru = pytz.timezone('America/Lima')
         st.session_state.start_time = datetime.now(zona_peru).replace(tzinfo=None)
         
-        st.toast("Base de datos en la nube reiniciada con éxito.", icon="✅")
+        st.toast("Base de datos en la nube reiniciada con éxito", icon="✅")
     except Exception as e:
         st.error(f"Error limpiando BD en la nube: {e}")
 
@@ -316,28 +313,25 @@ def renderizar_analisis():
     col_L, col_R = st.columns([3, 2]) 
     
     with col_L:
-        st.markdown("### Dimensiones VAD (Evolución Temporal)")
+        st.markdown("### Dimensiones VAD al minuto")
         
-        # 1. Usamos el tiempo REAL del reloj
+        # tiempo del reloj
         df_temporal = df[['timestamp', 'valence', 'arousal', 'dominance']].copy()
         df_temporal.set_index('timestamp', inplace=True)
         
-        # 2. Suavizado de la curva (Rolling)
+        # suavizado
         df_suavizado = df_temporal.rolling(window=10, min_periods=1).mean()
         df_suavizado.columns = ['Valencia (Agrado)', 'Activación (Energía)', 'Dominancia']
         
-        # 3. Filtrar para mostrar siempre solo el último minuto
+        # filtrado para asegurar el ultimo minuto
         if not df_suavizado.empty:
             tiempo_maximo = df_suavizado.index.max()
             limite_tiempo = tiempo_maximo - pd.Timedelta(seconds=60)
-            # Usamos .copy() para poder modificarlo sin alertas de Pandas
             df_grafica = df_suavizado[df_suavizado.index >= limite_tiempo].copy() 
         else:
             df_grafica = df_suavizado.copy()
         
-# =====================================================================
-        # SOLUCIÓN CON PLOTLY: Mantiene las etiquetas horizontales y limpias
-        # =====================================================================
+        # La grafica pero con plotly
         if not df_grafica.empty:
             import plotly.graph_objects as go
             
@@ -349,7 +343,7 @@ def renderizar_analisis():
             
             for col, color in zip(columnas, colores):
                 fig.add_trace(go.Scatter(
-                    x=df_grafica.index,  # Usamos el datetime original sin strftime
+                    x=df_grafica.index,  
                     y=df_grafica[col],
                     mode='lines',
                     name=col,
@@ -373,16 +367,16 @@ def renderizar_analisis():
                     font=dict(color="#A3A8B8")
                 ),
                 xaxis=dict(
-                    tickformat='%H:%M:%S', # Formato elegante directamente en el renderizado
+                    tickformat='%H:%M:%S', # Formato 
                     tickangle=0,           # Fuerza a que se queden horizontales
-                    nticks=6,              # Muestra máximo 6 etiquetas distribuidas para evitar colapsos
+                    nticks=6,              # Muestra máximo 6 etiquetas
                     gridcolor='#262730',
                     tickfont=dict(color="#A3A8B8")
                 ),
                 yaxis=dict(
                     gridcolor='#262730',
                     tickfont=dict(color="#A3A8B8"),
-                    range=[-1.05, 1.05]  # Un pequeño margen extra para que las líneas no toquen los bordes
+                    range=[-1.05, 1.05]  # Un pequeño margen
                 ),
                 template="plotly_dark"
             )
@@ -415,29 +409,23 @@ def renderizar_analisis():
         st.markdown(html_content, unsafe_allow_html=True)
 
 
-# ==========================================
-# RUTAS Y MODO REPOSO (SUPERVISOR EN TIEMPO REAL)
-# ==========================================
-
-# ==========================================
-# RUTAS Y MODO REPOSO (SUPERVISOR EN TIEMPO REAL)
-# ==========================================
+# Rutas y dormir
 @st.fragment(run_every=2)
 def supervisor_pantalla():
     df_check = get_data_since_start()
     
-    # 🔴 SOLUCIÓN CLOUD: Obtener la hora exacta de Perú
+    # hora de peru
     zona_peru = pytz.timezone('America/Lima')
     hora_actual_peru = datetime.now(zona_peru).replace(tzinfo=None)
 
-    # Calculamos hace cuántos segundos llegó el último dato
+    # cuanto tiempo paso desde que llego el ultimo dato
     if not df_check.empty:
         tiempo_ultimo_registro = df_check['timestamp'].max()
         diferencia_segundos = (hora_actual_peru - tiempo_ultimo_registro).total_seconds()
     else:
         diferencia_segundos = 999 
 
-    # Si pasaron más de 15 segundos sin recibir datos (Timeout)
+    # Si pasaron más de 15 segundos dormir
     if diferencia_segundos > 15:
         st.markdown("""
             <div style="text-align: center; padding: 60px; background-color: #262730; border-radius: 15px; margin-top: 50px; border: 2px dashed #636EFA;">
