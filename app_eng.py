@@ -4,37 +4,44 @@ import pandas as pd
 from datetime import datetime, timedelta
 import textwrap 
 import psycopg2
+from sqlalchemy import create_engine
+import pytz
+import plotly.express as px
+import plotly.graph_objects as go
 
+# Login
 def check_password():
     """Returns True if the user entered the correct password."""
-    def password_entered():
-        # Check if password matches the secret environment variable
-        if st.session_state["password"] == st.secrets["admin_password"]:
-            st.session_state["password_correct"] = True
-            del st.session_state["password"]  # Delete from memory for security
-        else:
-            st.session_state["password_correct"] = False
+    
+    # Si ya puso la clave antes, entra directo
+    if st.session_state.get("password_correct", False):
+        return True
 
-    if "password_correct" not in st.session_state:
-        st.markdown("<h2 style='text-align: center; color: #636EFA;'>🔒 Restricted Access</h2>", unsafe_allow_html=True)
-        st.text_input("Enter the institutional password:", type="password", on_change=password_entered, key="password")
-        return False
-    elif not st.session_state["password_correct"]:
-        st.markdown("<h2 style='text-align: center; color: #636EFA;'>🔒 Restricted Access</h2>", unsafe_allow_html=True)
-        st.text_input("Enter the institutional password:", type="password", on_change=password_entered, key="password")
-        st.error("❌ Incorrect password. Access denied.")
-        return False
-    return True
+    # Interfaz gráfica del Login
+    st.markdown("<h2 style='text-align: center; color: #636EFA;'>Academic Monitor - Restricted Access</h2>", unsafe_allow_html=True)
+    
+    # st form para evitar recargos inmediatos"
+    with st.form("login_form"):
+        pwd = st.text_input("Enter institutional password:", type="password")
+        # boton
+        submit_button = st.form_submit_button("Enter System", type="primary")
+        
+        if submit_button:
+            if pwd == st.secrets["admin_password"]:
+                st.session_state["password_correct"] = True
+                st.rerun()  # Recarga la página y te deja entrar
+            else:
+                st.error("Incorrect password. Access denied.")
+    
+    return False
 
-# Stop execution if password is incorrect
+# fin del logeo
 if not check_password():
     st.stop()
 
 
-st.title("Classroom Emotional Control Dashboard")
-
 DB_URL = st.secrets["DB_URL"]
-# Initial Configuration
+# Configuracion inicial
 DB_NAME = "classroom.db"
 
 st.set_page_config(
@@ -43,7 +50,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Associated Colors
+# Colores asociados
 COLORS = {
     'happy': '#00CC96',     
     'surprise': '#19D3F3',  
@@ -54,7 +61,7 @@ COLORS = {
     'disgust': '#FF6692'    
 }
 
-# CSS (Modified for White Background / Light Theme)
+# CSS adaptado a Modo Claro (Fondo Blanco) para el Paper
 st.markdown("""
     <style>
     .stApp { background-color: #FFFFFF; }
@@ -85,60 +92,64 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 if 'start_time' not in st.session_state: 
-    st.session_state.start_time = datetime.now()
+    zona_peru = pytz.timezone('America/Lima')
+    st.session_state.start_time = datetime.now(zona_peru).replace(tzinfo=None)
 
 
-# Database Functions
+# Base de datos
+engine = create_engine(st.secrets["DB_URL"])
 
 def get_data_since_start():
     try:
-        conn = psycopg2.connect(DB_URL)
-        # Limit to 500 records to prevent web saturation
-        df = pd.read_sql_query("SELECT timestamp, emotion, valence, arousal, dominance FROM emotions ORDER BY id DESC LIMIT 500", conn)
-        conn.close()
-        
+        # Usamos el engine en lugar del conn de psycopg2
+        df = pd.read_sql_query("SELECT timestamp, emotion, valence, arousal, dominance FROM emotions ORDER BY id DESC LIMIT 500", engine)
         if df.empty: return pd.DataFrame()
         df['timestamp'] = pd.to_datetime(df['timestamp'])
         return df
     except Exception as e:
-        # AGREGAMOS ESTA LÍNEA ROJA PARA VER EL CULPABLE REAL:
-        st.error(f"🚨 ERROR REAL OCULTO EN BASE DE DATOS: {e}") 
         return pd.DataFrame()
 
 def clear_database():
     try:
-        conn = sqlite3.connect(DB_NAME)
+        # conexion a la nube (Supabase)
+        conn = psycopg2.connect(st.secrets["DB_URL"])
         cursor = conn.cursor()
+        
+        # se borra todo
         cursor.execute("DELETE FROM emotions")
         conn.commit()
         conn.close()
-        st.session_state.start_time = datetime.now()
-        st.toast("Database successfully reset.", icon="✅")
+        
+        # el reloj se reinciia
+        zona_peru = pytz.timezone('America/Lima')
+        st.session_state.start_time = datetime.now(zona_peru).replace(tzinfo=None)
+        
+        st.toast("Cloud database successfully reset", icon="✅")
     except Exception as e:
-        st.error(f"Error clearing DB: {e}")
+        st.error(f"Error clearing cloud DB: {e}")
 
 @st.cache_data
 def convert_df_to_csv(df):
     return df.to_csv(index=False).encode('utf-8')
 
-# Metrics Calculation
+# Calculo de metricas
 def calculate_metrics(df):
     if df.empty: 
         return 0, "...", ("WAITING FOR DATA...", "#666666"), pd.DataFrame(), "neutral", "...", "...", "...", "...", "...", "..."
     
-    # Score conversion 
+    # Cambio a neutral alto 
     def get_score(emo):
-        if emo in ['neutral']: return 90     # Looking at board, reading, writing
-        if emo in ['surprise']: return 85    # High interest
-        if emo in ['happy']: return 70       # Positive but prone to distraction (laughter)
-        if emo in ['sad']: return 35         # Boredom/Fatigue
-        if emo in ['fear']: return 25        # Confusion/Anxiety
-        if emo in ['angry', 'disgust']: return 20 # Frustration/Rejection
+        if emo in ['neutral']: return 90     
+        if emo in ['surprise']: return 85    
+        if emo in ['happy']: return 70       
+        if emo in ['sad']: return 35         
+        if emo in ['fear']: return 25        
+        if emo in ['angry', 'disgust']: return 20 
         return 50
         
     df['score'] = df['emotion'].apply(get_score)
     
-    # 15-second windows
+    # los 15 segundos 
     tiempo_actual = df['timestamp'].max()
     df_reciente = df[df['timestamp'] >= tiempo_actual - timedelta(seconds=15)]
     df_anterior = df[(df['timestamp'] >= tiempo_actual - timedelta(seconds=30)) & (df['timestamp'] < tiempo_actual - timedelta(seconds=15))]
@@ -149,12 +160,12 @@ def calculate_metrics(df):
     current_avg = int(df_reciente['score'].mean())
     avg_anterior = df_anterior['score'].mean() if not df_anterior.empty else current_avg
     
-    # 1. Trend
+    # 1 La tendencia
     if current_avg > avg_anterior + 5: tendencia, tend_col = "RISING ⬆", "#00CC96"
     elif current_avg < avg_anterior - 5: tendencia, tend_col = "FALLING ⬇", "#EF553B"
     else: tendencia, tend_col = "STABLE ➖", "#6C757D"
 
-    # 2. Dominant Emotion
+    # 2 La emocion dominante
     try:
         dom_en = df_reciente['emotion'].mode()[0]
         trans = {'happy':'HAPPY', 'neutral':'NEUTRAL', 'sad':'SAD', 
@@ -162,14 +173,14 @@ def calculate_metrics(df):
         dom_es = trans.get(dom_en, dom_en.upper())
     except: dom_es, dom_en = "...", "neutral"
 
-    # 3. Arousal and Valence
+    # 3 Excitacion y Valencia
     aro_avg = df_reciente['arousal'].mean() if 'arousal' in df_reciente.columns else 0
     val_avg = df_reciente['valence'].mean() if 'valence' in df_reciente.columns else 0
     
     energia = "HIGH (Active)" if aro_avg > 0.2 else "LOW (Sleepy)" if aro_avg < -0.2 else "MEDIUM"
     disposicion = "POSITIVE" if val_avg > 0.1 else "NEGATIVE" if val_avg < -0.1 else "NEUTRAL"
 
-    # 4. Traffic Light Status
+    # 4.Semaforo
     if current_avg >= 75: 
         status, status_col = "OPTIMAL STATE", "#00CC96"
         razon = f"The average attention is {current_avg}%. The majority of the class is in a '{dom_es}' state."
@@ -183,7 +194,7 @@ def calculate_metrics(df):
         razon = f"Alert! Attention at {current_avg}%. High levels of fatigue, distraction, or '{dom_es}' are detected."
         sugerencia = "Take a 2-minute active break, change the class dynamic (group work/debate), or ask if there are any questions."
 
-    # 5. Charts
+    # 5 graficos
     if not df.empty:
         dist_counts = df['emotion'].value_counts().reset_index()
         dist_counts.columns = ['Emotion', 'Count']
@@ -199,7 +210,7 @@ def calculate_metrics(df):
     return current_avg, dom_es, (status, status_col), pd.DataFrame(), dom_en, tendencia, tend_col, energia, disposicion, razon, sugerencia
 
 
-# Sidebar Control Panel
+# Panel de control
 with st.sidebar:
     st.header("System Control")
     
@@ -229,7 +240,9 @@ with st.sidebar:
         clear_database()
         st.rerun()
 
-# Rendering
+st.title("Emotional Control Dashboard")
+
+# Renderizamiento
 
 def renderizar_semaforo():
     df = get_data_since_start()
@@ -250,7 +263,7 @@ def renderizar_semaforo():
         
     with c2:
         st.markdown("<br><br>", unsafe_allow_html=True)
-        # Reason / Diagnosis
+        # Razon
         st.markdown(f"""
         <div class="advice-box" style="border-color: #636EFA;">
             <div class="advice-title" style="color: #636EFA;">Classroom Diagnosis:</div>
@@ -258,7 +271,7 @@ def renderizar_semaforo():
         </div>
         """, unsafe_allow_html=True)
         
-        # Suggestion
+        # La Sugerencia
         st.markdown(f"""
         <div class="advice-box" style="border-color: {status_col};">
             <div class="advice-title" style="color: {status_col};">Pedagogical Suggestion:</div>
@@ -274,19 +287,19 @@ def renderizar_modulos():
     score_color = "#00CC96" if att_score > 60 else ("#FFA15A" if att_score > 40 else "#EF553B")
     dom_color = COLORS.get(dom_key, "#333333")
     
-    # Row 1
+    #Fila 1
     c1, c2, c3 = st.columns(3)
     c1.markdown(f'<div class="metric-card" style="border-top: 4px solid {score_color}"><h3>Current Attention</h3><h2 style="color:{score_color}">{att_score}%</h2></div>', unsafe_allow_html=True)
     c2.markdown(f'<div class="metric-card" style="border-top: 4px solid {dom_color}"><h3>Dominant State</h3><h2 style="color:{dom_color};font-size:30px;">{dom_text}</h2></div>', unsafe_allow_html=True)
     c3.markdown(f'<div class="metric-card" style="border-top: 4px solid {status_col}"><h3>Condition</h3><h2 style="color:{status_col};font-size:26px;">{status_text}</h2></div>', unsafe_allow_html=True)
     
-    # Row 2
+    #Fila 2
     c4, c5, c6 = st.columns(3)
     c4.markdown(f'<div class="metric-card" style="border-top: 4px solid #19D3F3"><h3>Energy (Arousal)</h3><h2 style="color:#19D3F3;font-size:26px;">{energia}</h2></div>', unsafe_allow_html=True)
     c5.markdown(f'<div class="metric-card" style="border-top: 4px solid #AB63FA"><h3>Disposition (Valence)</h3><h2 style="color:#AB63FA;font-size:26px;">{disposicion}</h2></div>', unsafe_allow_html=True)
     c6.markdown(f'<div class="metric-card" style="border-top: 4px solid {tend_col}"><h3>Attention Trend</h3><h2 style="color:{tend_col};font-size:26px;">{tendencia}</h2></div>', unsafe_allow_html=True)
 
-# Analysis View
+# Vista de analisis
 
 def renderizar_analisis():
     df = get_data_since_start()
@@ -299,23 +312,77 @@ def renderizar_analisis():
     col_L, col_R = st.columns([3, 2]) 
     
     with col_L:
-        st.markdown("### VAD Dimensions (Temporal Evolution)")
-        df['Minutes'] = (df['timestamp'] - st.session_state.start_time).dt.total_seconds() / 60.0
+        st.markdown("### VAD Dimensions per minute")
         
-        df_temporal = df[['Minutes', 'valence', 'arousal', 'dominance']].set_index('Minutes')
+        # tiempo del reloj
+        df_temporal = df[['timestamp', 'valence', 'arousal', 'dominance']].copy()
+        df_temporal.set_index('timestamp', inplace=True)
+        
+        # suavizado
         df_suavizado = df_temporal.rolling(window=10, min_periods=1).mean()
         df_suavizado.columns = ['Valence', 'Arousal', 'Dominance']
         
-        tiempo_maximo = df_suavizado.index.max()
-        if tiempo_maximo >= 1.0:
-            df_grafica = df_suavizado[df_suavizado.index >= (tiempo_maximo - 1.0)]
+        # filtrado para asegurar el ultimo minuto
+        if not df_suavizado.empty:
+            tiempo_maximo = df_suavizado.index.max()
+            limite_tiempo = tiempo_maximo - pd.Timedelta(seconds=60)
+            df_grafica = df_suavizado[df_suavizado.index >= limite_tiempo].copy() 
         else:
-            df_grafica = df_suavizado
+            df_grafica = df_suavizado.copy()
         
-        st.line_chart(df_grafica, color=["#00CC96", "#636EFA", "#AB63FA"])
-
+        # La grafica pero con plotly (Adaptado a Modo Claro)
+        if not df_grafica.empty:
+            fig = go.Figure()
+            
+            # Mapeo de columnas y sus colores exactos
+            columnas = ['Valence', 'Arousal', 'Dominance']
+            colores = ["#00CC96", "#636EFA", "#AB63FA"]
+            
+            for col, color in zip(columnas, colores):
+                fig.add_trace(go.Scatter(
+                    x=df_grafica.index,  
+                    y=df_grafica[col],
+                    mode='lines',
+                    name=col,
+                    line=dict(color=color, width=3),
+                    hovertemplate='%{y:.2f}'
+                ))
+            
+            # Configuración del estilo CLARO para el paper
+            fig.update_layout(
+                margin=dict(l=20, r=20, t=10, b=20),
+                paper_bgcolor='rgba(0,0,0,0)', 
+                plot_bgcolor='rgba(0,0,0,0)',
+                height=320,
+                showlegend=True,
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=-0.3,
+                    xanchor="center",
+                    x=0.5,
+                    font=dict(color="#6C757D") # Letras gris oscuro
+                ),
+                xaxis=dict(
+                    tickformat='%H:%M:%S', 
+                    tickangle=0,           
+                    nticks=6,              
+                    gridcolor='#E9ECEF',   # Grillas claras
+                    tickfont=dict(color="#6C757D")
+                ),
+                yaxis=dict(
+                    gridcolor='#E9ECEF',   # Grillas claras
+                    tickfont=dict(color="#6C757D"),
+                    range=[-1.05, 1.05]  
+                ),
+                template="plotly_white"    # Plantilla blanca
+            )
+            
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+            
     with col_R:
         st.markdown("### State History (Accumulated)")
+        # Fondo y bordes adaptados a blanco
         html_content = '<div style="background-color: #F8F9FA; border-radius: 10px; padding: 15px; height: 350px; overflow-y: auto; border: 1px solid #E0E0E0;">'
         
         for index, row in df_dist.iterrows():
@@ -341,34 +408,34 @@ def renderizar_analisis():
         st.markdown(html_content, unsafe_allow_html=True)
 
 
-# ==========================================
-# ROUTES AND SLEEP MODE (REAL-TIME SUPERVISOR)
-# ==========================================
-
-# Runs every 2 seconds automatically
+# Rutas y dormir
 @st.fragment(run_every=2)
 def supervisor_pantalla():
     df_check = get_data_since_start()
     
-    # Calculate seconds since the last data arrived
+    # hora de peru
+    zona_peru = pytz.timezone('America/Lima')
+    hora_actual_peru = datetime.now(zona_peru).replace(tzinfo=None)
+
+    # cuanto tiempo paso desde que llego el ultimo dato
     if not df_check.empty:
         tiempo_ultimo_registro = df_check['timestamp'].max()
-        diferencia_segundos = (datetime.now() - tiempo_ultimo_registro).total_seconds()
+        diferencia_segundos = (hora_actual_peru - tiempo_ultimo_registro).total_seconds()
     else:
-        diferencia_segundos = 999 # Assumed off if no data
+        diferencia_segundos = 999 
 
-    # If > 15 seconds without data
+    # Si pasaron más de 15 segundos dormir
     if diferencia_segundos > 15:
+        # Modo reposo con colores de fondo claros
         st.markdown("""
             <div style="text-align: center; padding: 60px; background-color: #F8F9FA; border-radius: 15px; margin-top: 50px; border: 2px dashed #636EFA;">
-                <h1 style="color: #636EFA; font-size: 3.5rem;">🌙 SYSTEM IN SLEEP MODE</h1>
+                <h1 style="color: #636EFA; font-size: 3.5rem;">SYSTEM IN SLEEP MODE</h1>
                 <h3 style="color: #6C757D; margin-bottom: 20px;">Local Artificial Intelligence processing is inactive.</h3>
                 <p style="color: #212529; font-size: 1.2rem;">Waiting for real-time connection from the institution's camera...</p>
-                <p style="color: #6C757D; font-size: 0.9rem;">(Privacy protection activated: No images are stored in the cloud)</p>
+                <p style="color: #6C757D; font-size: 0.9rem;">(No images are stored in the cloud)</p>
             </div>
         """, unsafe_allow_html=True)
     
-    # If camera is ON and sending data (less than 15s diff)
     else:
         if modo_vista == "Traffic Light View":
             renderizar_semaforo()
@@ -377,5 +444,4 @@ def supervisor_pantalla():
         elif modo_vista == "Session Analysis":
             renderizar_analisis()
 
-# Execute supervisor
 supervisor_pantalla()
