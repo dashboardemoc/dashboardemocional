@@ -101,6 +101,8 @@ def get_data_since_start():
         df['timestamp'] = pd.to_datetime(df['timestamp'])
         return df
     except Exception as e:
+        # AGREGAMOS ESTA LÍNEA ROJA PARA VER EL CULPABLE REAL:
+        st.error(f"🚨 ERROR REAL OCULTO EN BASE DE DATOS: {e}") 
         return pd.DataFrame()
 
 def clear_database():
